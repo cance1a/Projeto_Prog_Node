@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎓 Anti-Exam Detector</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #1a1a2e;
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        header h1 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
+        .container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        video {
+            width: 100%;
+            max-height: 400px;
+            background: black;
+            border-radius: 10px;
+            border: 2px solid #667eea;
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        button {
+            padding: 15px;
+            font-size: 1.1rem;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            color: white;
+            transition: 0.3s;
+        }
+
+        .btn-start {
+            background: #10b981;
+        }
+
+        .btn-start:hover {
+            background: #059669;
+        }
+
+        .btn-stop {
+            background: #ef4444;
+        }
+
+        .btn-stop:hover {
+            background: #dc2626;
+        }
+
+        .status {
+            background: #2a2a3e;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .status-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #667eea;
+            margin-top: 10px;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            background: #2a2a3e;
+            color: white;
+            font-size: 1rem;
+            margin-bottom: 15px;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #764ba2;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🎓 Anti-Exam Detector</h1>
+        <p>Vigilância em Tempo Real</p>
+    </header>
+
+    <div class="container">
+        <input type="text" id="studentId" placeholder="ID do Aluno" />
+        
+        <video id="video" autoplay playsinline></video>
+
+        <div class="status">
+            <div>⏱️ Duração</div>
+            <div class="status-value" id="timer">00:00</div>
+        </div>
+
+        <div class="status">
+            <div>⚠️ Eventos Suspeitos</div>
+            <div class="status-value" id="suspicionCount">0</div>
+        </div>
+
+        <div class="controls">
+            <button class="btn-start" onclick="startExam()">▶️ INICIAR</button>
+            <button class="btn-stop" onclick="stopExam()">⏹️ TERMINAR</button>
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script>
+        let socket;
+        let video;
+        let isExamRunning = false;
+        let examStartTime;
+        let suspicionCount = 0;
+
+        // Inicializa quando página carrega
+        document.addEventListener('DOMContentLoaded', async () => {
+            video = document.getElementById('video');
+            socket = io();
+
+            // Testa conexão
+            socket.on('connect', () => {
+                console.log('✅ Conectado ao servidor!');
+            });
+
+            // Acede à câmera
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'user' }
+                });
+                video.srcObject = stream;
+                console.log('✅ Câmera pronta!');
+            } catch (error) {
+                console.error('❌ Erro ao aceder câmera:', error);
+                alert('Não consegui aceder à câmera. Verifique permissões.');
+            }
+        });
+
+        function startExam() {
+            const studentId = document.getElementById('studentId').value;
+            
+            if (!studentId.trim()) {
+                alert('⚠️ Insira o ID do aluno!');
+                return;
+            }
+
+            isExamRunning = true;
+            examStartTime = Date.now();
+            suspicionCount = 0;
+
+            socket.emit('start-exam', { studentId });
+            console.log('✅ Exame iniciado');
+
+            startTimer();
+        }
+
+        function stopExam() {
+            isExamRunning = false;
+            socket.emit('end-exam');
+            console.log('⏹️ Exame terminado');
+        }
+
+        function startTimer() {
+            setInterval(() => {
+                if (!isExamRunning) return;
+                
+                const elapsed = Math.floor((Date.now() - examStartTime) / 1000);
+                const minutes = Math.floor(elapsed / 60);
+                const seconds = elapsed % 60;
+                
+                document.getElementById('timer').textContent = 
+                    `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            }, 1000);
+        }
+
+        // Simula detecção (depois vamos melhorar)
+        socket.on('suspicion-detected', () => {
+            suspicionCount++;
+            document.getElementById('suspicionCount').textContent = suspicionCount;
+        });
+    </script>
+</body>
+</html>
